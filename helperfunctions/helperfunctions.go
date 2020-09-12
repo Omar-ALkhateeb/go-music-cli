@@ -84,6 +84,7 @@ func GetPlaylistItems(id string) {
 	defer res.Body.Close()
 	var result Data
 	//whiteListed := []string{}
+	fmt.Println("black listed mainstream artists")
 	var blackListed = BlackListArtists()
 	byteValue, _ := ioutil.ReadAll(res.Body)
 	json.Unmarshal(byteValue, &result)
@@ -98,8 +99,8 @@ func GetPlaylistItems(id string) {
 		}
 		if !flag {
 			//whiteListed = append(whiteListed, item.ID)
-			fmt.Println(item.Snippet.ResourceID.VideoID)
-			ExampleClient(item.Snippet.ResourceID.VideoID)
+			fmt.Println(item.Snippet.ResourceID.VideoID, item.Snippet.Title)
+			ExampleClient(item.Snippet.ResourceID.VideoID, item.Snippet.Title)
 		}
 	}
 	//fmt.Println(result.Items[0].Snippet.Title)
@@ -113,7 +114,7 @@ func recoverDownload() {
 }
 
 //ExampleClient : Example code for how to use this package for download video.
-func ExampleClient(id string) {
+func ExampleClient(id string, title string) {
 	defer recoverDownload()
 	client := youtube.Client{}
 
@@ -122,13 +123,13 @@ func ExampleClient(id string) {
 		panic(err)
 	}
 	//fmt.Println(video.Formats)
-	resp, err := client.GetStream(video, &video.Formats[len(video.Formats)-1])
+	resp, err := client.GetStream(video, &video.Formats[len(video.Formats)-1]) // audio/mp3
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
 
-	file, err := os.Create(id + ".mp3")
+	file, err := os.Create(title + ".mp3")
 	if err != nil {
 		panic(err)
 	}
@@ -138,4 +139,6 @@ func ExampleClient(id string) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("done :)")
+
 }
