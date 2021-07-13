@@ -20,12 +20,12 @@ func main() {
 
 func getIDFromURL(url string) {
 	//url = strings.TrimLeft(url, "https://www.youtube.com/playlist?list=")
-	url = strings.Split(url, "&list=")[1]
+	url = strings.Split(url, "?list=")[1]
 	id := strings.Split(url, "&")[0]
 	fmt.Println("id is " + id)
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("error parsing link!")
+			fmt.Println("error parsing link!", r)
 		}
 	}()
 

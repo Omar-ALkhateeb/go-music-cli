@@ -2,11 +2,8 @@ package helperfunctions
 
 import (
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -43,8 +40,11 @@ func readCSVFromURL(url string) ([][]string, error) {
 	}
 
 	defer resp.Body.Close()
+	// fmt.Print(resp.Body)
 	reader := csv.NewReader(resp.Body)
 	reader.Comma = ','
+	reader.LazyQuotes = true
+	reader.FieldsPerRecord = -1
 	data, err := reader.ReadAll()
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func readCSVFromURL(url string) ([][]string, error) {
 
 //BlackListArtists return a list of top 200 artist of this year
 func BlackListArtists() []string {
-	url := "https://spotifycharts.com/regional/global/daily/latest/download"
+	url := "https://gist.githubusercontent.com/mbejda/9912f7a366c62c1f296c/raw/dd94a25492b3062f4ca0dc2bb2cdf23fec0896ea/10000-MTV-Music-Artists-page-1.csv"
 	artists := []string{}
 	data, err := readCSVFromURL(url)
 	if err != nil {
@@ -63,44 +63,55 @@ func BlackListArtists() []string {
 	}
 
 	for idx, row := range data {
+		if idx > 300 {
+			break
+		}
 		// skip header
 		if idx == 0 || idx == 1 {
 			continue
 		}
-		//fmt.Println(row[2])
-		artists = append(artists, row[2])
+		// fmt.Println(row[0])
+		artists = append(artists, row[0])
 	}
-	fmt.Println(artists)
+	// fmt.Println(artists)
 	return artists
 }
 
 //GetPlaylistItems gets and parses res from yt api
 func GetPlaylistItems(id string) {
-	url := "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=" + id + "&key=AIzaSyCIE10uSul8S-MVftkpsyPurgdc8O-4MNY"
-	res, err := http.Get(url)
+
+	client := youtube.Client{}
+
+	playlist, err := client.GetPlaylist(id)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	defer res.Body.Close()
-	var result Data
-	//whiteListed := []string{}
+
+	/* ----- Enumerating playlist videos ----- */
+	header := fmt.Sprintf("Playlist %s by %s", playlist.Title, playlist.Author)
+	println(header)
+	println(strings.Repeat("=", len(header)) + "\n")
+
+	// for k, v := range playlist.Videos {
+	// 	fmt.Printf("(%d) %s - '%s'\n", k+1, v.Author, v.Title)
+	// }
+
 	fmt.Println("black listed mainstream artists")
 	var blackListed = BlackListArtists()
-	byteValue, _ := ioutil.ReadAll(res.Body)
-	json.Unmarshal(byteValue, &result)
 	// search for items to remove
-	for _, item := range result.Items {
+	for _, item := range playlist.Videos {
 		flag := false
 		for _, str := range blackListed {
-			if strings.Contains(item.Snippet.Title, str) {
+			// print(item.ID)
+			if strings.Contains(item.Title, str) {
 				flag = true
 				break
 			}
 		}
 		if !flag {
-			//whiteListed = append(whiteListed, item.ID)
-			fmt.Println(item.Snippet.ResourceID.VideoID, item.Snippet.Title)
-			ExampleClient(item.Snippet.ResourceID.VideoID, item.Snippet.Title)
+			// whiteListed = append(whiteListed, item.ID)
+			fmt.Println(item.ID, item.Title)
+			ExampleClient(item.ID, item.Title)
 		}
 	}
 	//fmt.Println(result.Items[0].Snippet.Title)
@@ -123,11 +134,11 @@ func ExampleClient(id string, title string) {
 		panic(err)
 	}
 	//fmt.Println(video.Formats)
-	resp, err := client.GetStream(video, &video.Formats[len(video.Formats)-1]) // audio/mp3
+	resp, _, err := client.GetStream(video, &video.Formats[len(video.Formats)-1]) // audio/mp3
 	if err != nil {
 		panic(err)
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 
 	file, err := os.Create(title + ".mp3")
 	if err != nil {
@@ -135,7 +146,7 @@ func ExampleClient(id string, title string) {
 	}
 	defer file.Close()
 
-	_, err = io.Copy(file, resp.Body)
+	_, err = io.Copy(file, resp)
 	if err != nil {
 		panic(err)
 	}
